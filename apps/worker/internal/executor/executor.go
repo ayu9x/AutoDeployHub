@@ -20,8 +20,8 @@ import (
 	"time"
 
 	"github.com/autodeployhub/worker/internal/config"
-	"github.com/autodeployhub/worker/internal/queue"
-	"github.com/go-redis/redis/v9"
+	"github.com/autodeployhub/worker/internal/models"
+	"github.com/redis/go-redis/v9"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -52,7 +52,7 @@ func (e *Executor) Close() {
 }
 
 // ExecutePipeline runs the full pipeline for a job
-func (e *Executor) ExecutePipeline(ctx context.Context, job *queue.PipelineJob) error {
+func (e *Executor) ExecutePipeline(ctx context.Context, job *models.PipelineJob) error {
 	logger := log.WithFields(log.Fields{
 		"pipelineId": job.PipelineID,
 		"projectId":  job.ProjectID,

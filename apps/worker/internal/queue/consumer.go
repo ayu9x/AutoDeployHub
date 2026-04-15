@@ -14,56 +14,27 @@ import (
 	"time"
 
 	"github.com/autodeployhub/worker/internal/config"
-	"github.com/autodeployhub/worker/internal/executor"
-	"github.com/go-redis/redis/v9"
+	"github.com/autodeployhub/worker/internal/models"
+	"github.com/redis/go-redis/v9"
 	log "github.com/sirupsen/logrus"
 )
 
-// PipelineJob represents a job from the queue
-type PipelineJob struct {
-	ID         string            `json:"id"`
-	PipelineID string            `json:"pipelineId"`
-	ProjectID  string            `json:"projectId"`
-	RepoURL    string            `json:"repoUrl"`
-	Branch     string            `json:"branch"`
-	CommitHash string            `json:"commitHash"`
-	Config     PipelineConfig    `json:"config"`
-	Secrets    map[string]string `json:"secrets"`
-	TriggeredBy string           `json:"triggeredBy"`
-}
-
-// PipelineConfig matches the NestJS pipeline config structure
-type PipelineConfig struct {
-	Steps []PipelineStep `json:"steps" yaml:"steps"`
-	Cache *CacheConfig   `json:"cache,omitempty" yaml:"cache,omitempty"`
-	Env   map[string]string `json:"env,omitempty" yaml:"env,omitempty"`
-}
-
-type PipelineStep struct {
-	Name     string `json:"name" yaml:"name"`
-	Command  string `json:"command,omitempty" yaml:"command,omitempty"`
-	Script   string `json:"script,omitempty" yaml:"script,omitempty"`
-	Parallel bool   `json:"parallel,omitempty" yaml:"parallel,omitempty"`
-	Timeout  int    `json:"timeout,omitempty" yaml:"timeout,omitempty"`
-	Retries  int    `json:"retries,omitempty" yaml:"retries,omitempty"`
-}
-
-type CacheConfig struct {
-	Key   string   `json:"key" yaml:"key"`
-	Paths []string `json:"paths" yaml:"paths"`
+// PipelineExecutor interface for decoupled execution
+type PipelineExecutor interface {
+	ExecutePipeline(ctx context.Context, job *models.PipelineJob) error
 }
 
 // Consumer processes jobs from Redis queues
 type Consumer struct {
 	client   *redis.Client
-	executor *executor.Executor
+	executor PipelineExecutor
 	cfg      *config.Config
 	wg       sync.WaitGroup
 	stopCh   chan struct{}
 }
 
 // NewConsumer creates a new queue consumer
-func NewConsumer(cfg *config.Config, exec *executor.Executor) (*Consumer, error) {
+func NewConsumer(cfg *config.Config, exec PipelineExecutor) (*Consumer, error) {
 	client := redis.NewClient(&redis.Options{
 		Addr:     fmt.Sprintf("%s:%s", cfg.RedisHost, cfg.RedisPort),
 		Password: cfg.RedisPassword,
@@ -135,7 +106,7 @@ func (c *Consumer) Start(ctx context.Context, concurrency int) {
 
 					// Extract the actual job payload
 					dataStr, _ := json.Marshal(jobData["data"])
-					var job PipelineJob
+					var job models.PipelineJob
 					if err := json.Unmarshal(dataStr, &job); err != nil {
 						logger.WithError(err).Error("Failed to parse pipeline job")
 						continue
