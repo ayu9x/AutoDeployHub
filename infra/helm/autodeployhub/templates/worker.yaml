@@ -1,0 +1,43 @@
+{{- $ns := .Values.namespace | default "autodeployhub" }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Values.worker.serviceAccount.name }}
+  namespace: {{ $ns }}
+  annotations:
+    {{- toYaml .Values.worker.serviceAccount.annotations | nindent 4 }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+  namespace: {{ $ns }}
+spec:
+  replicas: {{ .Values.worker.replicaCount }}
+  selector:
+    matchLabels:
+      app: worker
+  template:
+    metadata:
+      labels:
+        app: worker
+    spec:
+      serviceAccountName: {{ .Values.worker.serviceAccount.name }}
+      containers:
+        - name: worker
+          image: "{{ .Values.worker.image.repository }}:{{ .Values.worker.image.tag }}"
+          imagePullPolicy: {{ .Values.worker.image.pullPolicy }}
+          env:
+            {{- range $key, $value := .Values.worker.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.worker.resources | nindent 12 }}
+          # Worker doesn't serve HTTP, so use exec probe
+          livenessProbe:
+            exec:
+              command: ["/bin/sh", "-c", "pgrep worker"]
+            initialDelaySeconds: 10
+            periodSeconds: 30

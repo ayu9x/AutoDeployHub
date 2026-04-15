@@ -1,0 +1,97 @@
+# ============================================
+# AutoDeployHub – Docker Compose (Local Dev)
+# Reference compose for understanding services.
+# Production runs on AWS EKS via Helm.
+# ============================================
+
+version: '3.9'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: autodeployhub
+      POSTGRES_USER: autodeployhub
+      POSTGRES_PASSWORD: localdev123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U autodeployhub"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Backend API
+  backend:
+    build:
+      context: ./apps/backend
+      dockerfile: Dockerfile
+    ports:
+      - "4000:4000"
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://autodeployhub:localdev123@postgres:5432/autodeployhub?schema=public
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: local-dev-jwt-secret-change-in-prod
+      JWT_REFRESH_SECRET: local-dev-refresh-secret-change-in-prod
+      ENCRYPTION_KEY: local-dev-encryption-key-32chars!
+      FRONTEND_URL: http://localhost:3000
+      AWS_REGION: us-east-1
+      AWS_S3_ARTIFACTS_BUCKET: autodeployhub-dev-artifacts
+      AWS_S3_LOGS_BUCKET: autodeployhub-dev-logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # Frontend Dashboard
+  frontend:
+    build:
+      context: ./apps/frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:4000/api
+      NEXT_PUBLIC_WS_URL: http://localhost:4000
+    depends_on:
+      - backend
+
+  # Worker Service
+  worker:
+    build:
+      context: ./apps/worker
+      dockerfile: Dockerfile
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      API_URL: http://backend:4000
+      AWS_REGION: us-east-1
+      WORKER_CONCURRENCY: 3
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      redis:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  redis_data:

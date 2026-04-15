@@ -1,0 +1,260 @@
+// ============================================
+// Prisma Schema – AutoDeployHub
+// PostgreSQL database schema with all models,
+// relations, indexes, and status enums
+// ============================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// -- Enums --
+
+enum UserRole {
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+enum PipelineStatus {
+  PENDING
+  RUNNING
+  SUCCESS
+  FAILED
+  CANCELLED
+}
+
+enum JobStatus {
+  QUEUED
+  RUNNING
+  SUCCESS
+  FAILED
+  CANCELLED
+  SKIPPED
+}
+
+enum DeploymentStatus {
+  PENDING
+  IN_PROGRESS
+  DEPLOYED
+  FAILED
+  ROLLED_BACK
+}
+
+enum DeploymentTarget {
+  KUBERNETES
+  DOCKER_REGISTRY
+  STATIC_HOSTING
+}
+
+enum TriggerType {
+  PUSH
+  PULL_REQUEST
+  MANUAL
+  SCHEDULE
+}
+
+// -- Models --
+
+/// User accounts with optional GitHub OAuth integration
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String?
+  passwordHash  String?
+  avatarUrl     String?
+  githubId      String?  @unique
+  githubToken   String?  // Encrypted GitHub access token
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  projects      ProjectMember[]
+  pipelines     Pipeline[]      @relation("PipelineTriggeredBy")
+  deployments   Deployment[]    @relation("DeploymentDeployedBy")
+
+  @@index([email])
+  @@index([githubId])
+  @@map("users")
+}
+
+/// Projects represent connected repositories with pipeline configuration
+model Project {
+  id              String   @id @default(cuid())
+  name            String
+  description     String?
+  repoUrl         String
+  repoBranch      String   @default("main")
+  repoProvider    String   @default("github")
+  framework       String?  // Auto-detected: nodejs, python, go, etc.
+  autoDetected    Boolean  @default(false)
+  webhookId       String?  // GitHub webhook ID for cleanup
+  webhookSecret   String?  // Secret for webhook signature verification
+  pipelineConfig  Json?    // YAML-parsed pipeline configuration
+  buildCache      Boolean  @default(true)
+  autoDeploy      Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  members         ProjectMember[]
+  pipelines       Pipeline[]
+  secrets         Secret[]
+  deployments     Deployment[]
+
+  @@index([name])
+  @@index([repoUrl])
+  @@map("projects")
+}
+
+/// Join table for User <-> Project many-to-many with role
+model ProjectMember {
+  id        String   @id @default(cuid())
+  role      UserRole @default(MEMBER)
+  userId    String
+  projectId String
+  joinedAt  DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, projectId])
+  @@index([userId])
+  @@index([projectId])
+  @@map("project_members")
+}
+
+/// Pipeline represents a single CI/CD run triggered by push, PR, or manual action
+model Pipeline {
+  id          String         @id @default(cuid())
+  number      Int            // Sequential pipeline number per project
+  status      PipelineStatus @default(PENDING)
+  trigger     TriggerType    @default(PUSH)
+  branch      String
+  commitHash  String?
+  commitMsg   String?
+  config      Json           // Snapshot of pipeline config at run time
+  startedAt   DateTime?
+  finishedAt  DateTime?
+  duration    Int?           // Duration in seconds
+  createdAt   DateTime       @default(now())
+
+  projectId   String
+  triggeredBy String
+
+  // Relations
+  project     Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user        User           @relation("PipelineTriggeredBy", fields: [triggeredBy], references: [id])
+  jobs        Job[]
+  deployment  Deployment?
+
+  @@index([projectId, status])
+  @@index([projectId, number])
+  @@index([createdAt])
+  @@index([status])
+  @@map("pipelines")
+}
+
+/// Job represents a single step within a pipeline execution
+model Job {
+  id          String    @id @default(cuid())
+  name        String    // Step name: install, build, test, deploy
+  step        Int       // Step order (0-indexed)
+  status      JobStatus @default(QUEUED)
+  command     String?   // Command to execute
+  exitCode    Int?      // Process exit code
+  output      String?   // Summary output
+  startedAt   DateTime?
+  finishedAt  DateTime?
+  duration    Int?      // Duration in seconds
+  retryCount  Int       @default(0)
+  maxRetries  Int       @default(3)
+  cacheKey    String?   // Cache key for build cache
+  cacheHit    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+
+  pipelineId  String
+
+  // Relations
+  pipeline    Pipeline  @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  logs        Log[]
+
+  @@index([pipelineId, step])
+  @@index([status])
+  @@map("jobs")
+}
+
+/// Log entries for real-time streaming during job execution
+model Log {
+  id        String   @id @default(cuid())
+  line      Int      // Log line number
+  content   String   // Log content
+  level     String   @default("info") // debug, info, warn, error
+  timestamp DateTime @default(now())
+  source    String   @default("stdout") // stdout, stderr, system
+
+  jobId     String
+
+  // Relations
+  job       Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId, line])
+  @@index([jobId, timestamp])
+  @@map("logs")
+}
+
+/// Deployment records for tracking released versions
+model Deployment {
+  id            String           @id @default(cuid())
+  version       String           // Semver or commit-based version
+  status        DeploymentStatus @default(PENDING)
+  target        DeploymentTarget
+  targetUrl     String?          // URL of deployed application
+  environment   String           @default("production")
+  metadata      Json?            // Additional deployment metadata
+  canary        Boolean          @default(false)
+  canaryWeight  Int?             // Traffic percentage for canary (0-100)
+  rollbackFrom  String?          // ID of deployment this rolled back from
+  startedAt     DateTime?
+  finishedAt    DateTime?
+  rolledBackAt  DateTime?
+  errorMessage  String?
+  createdAt     DateTime         @default(now())
+
+  projectId     String
+  pipelineId    String           @unique
+  deployedBy    String
+
+  // Relations
+  project       Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  pipeline      Pipeline         @relation(fields: [pipelineId], references: [id])
+  user          User             @relation("DeploymentDeployedBy", fields: [deployedBy], references: [id])
+
+  @@index([projectId, status])
+  @@index([projectId, createdAt])
+  @@index([environment])
+  @@map("deployments")
+}
+
+/// Encrypted secrets (env variables) for projects
+model Secret {
+  id          String   @id @default(cuid())
+  key         String   // Environment variable name
+  value       String   // AES-256 encrypted value
+  description String?
+  projectId   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, key])
+  @@index([projectId])
+  @@map("secrets")
+}

@@ -1,0 +1,66 @@
+# ============================================
+# CD Pipeline – Deploy to AWS EKS
+# Triggered on push to main branch
+# ============================================
+
+name: CD – Deploy to AWS
+
+on:
+  push:
+    branches: [main]
+
+env:
+  AWS_REGION: us-east-1
+  EKS_CLUSTER: autodeployhub-dev
+
+jobs:
+  deploy:
+    name: Build & Deploy to EKS
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build & push Frontend
+        run: |
+          docker build -t ${{ steps.ecr.outputs.registry }}/autodeployhub/frontend:${{ github.sha }} ./apps/frontend
+          docker push ${{ steps.ecr.outputs.registry }}/autodeployhub/frontend:${{ github.sha }}
+
+      - name: Build & push Backend
+        run: |
+          docker build -t ${{ steps.ecr.outputs.registry }}/autodeployhub/backend:${{ github.sha }} ./apps/backend
+          docker push ${{ steps.ecr.outputs.registry }}/autodeployhub/backend:${{ github.sha }}
+
+      - name: Build & push Worker
+        run: |
+          docker build -t ${{ steps.ecr.outputs.registry }}/autodeployhub/worker:${{ github.sha }} ./apps/worker
+          docker push ${{ steps.ecr.outputs.registry }}/autodeployhub/worker:${{ github.sha }}
+
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER }} --region ${{ env.AWS_REGION }}
+
+      - name: Deploy with Helm
+        run: |
+          helm upgrade --install autodeployhub ./infra/helm/autodeployhub \
+            --namespace autodeployhub --create-namespace \
+            --set frontend.image.repository=${{ steps.ecr.outputs.registry }}/autodeployhub/frontend \
+            --set frontend.image.tag=${{ github.sha }} \
+            --set backend.image.repository=${{ steps.ecr.outputs.registry }}/autodeployhub/backend \
+            --set backend.image.tag=${{ github.sha }} \
+            --set worker.image.repository=${{ steps.ecr.outputs.registry }}/autodeployhub/worker \
+            --set worker.image.tag=${{ github.sha }} \
+            --wait --timeout 5m
