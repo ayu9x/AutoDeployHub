@@ -67,6 +67,7 @@ model User {
   email         String   @unique
   name          String?
   passwordHash  String?
+  avatar        String?
   avatarUrl     String?
   githubId      String?  @unique
   githubToken   String?  // Encrypted GitHub access token
@@ -77,6 +78,10 @@ model User {
   projects      ProjectMember[]
   pipelines     Pipeline[]      @relation("PipelineTriggeredBy")
   deployments   Deployment[]    @relation("DeploymentDeployedBy")
+  teamMembers   TeamMember[]
+  auditLogs     AuditLog[]
+  apiTokens     ApiToken[]
+  notifications Notification[]
 
   @@index([email])
   @@index([githubId])
@@ -257,4 +262,112 @@ model Secret {
   @@unique([projectId, key])
   @@index([projectId])
   @@map("secrets")
+}
+
+// ── SaaS Features ──
+
+/// Teams for multi-user collaboration
+model Team {
+  id        String       @id @default(cuid())
+  name      String
+  ownerId   String
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  members   TeamMember[]
+  invites   TeamInvite[]
+
+  @@index([ownerId])
+  @@map("teams")
+}
+
+/// Team membership with role
+model TeamMember {
+  id        String   @id @default(cuid())
+  role      String   @default("MEMBER") // OWNER, ADMIN, MEMBER, VIEWER
+  userId    String
+  teamId    String
+  joinedAt  DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, teamId])
+  @@index([teamId])
+  @@map("team_members")
+}
+
+/// Pending team invitations
+model TeamInvite {
+  id         String   @id @default(cuid())
+  email      String
+  role       String   @default("MEMBER")
+  status     String   @default("PENDING") // PENDING, ACCEPTED, DECLINED
+  teamId     String
+  invitedBy  String
+  createdAt  DateTime @default(now())
+  expiresAt  DateTime @default(dbgenerated("NOW() + INTERVAL '7 days'"))
+
+  team       Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@index([teamId, email])
+  @@map("team_invites")
+}
+
+/// Audit log for tracking all user actions
+model AuditLog {
+  id          String   @id @default(cuid())
+  userId      String
+  action      String   // e.g. PROJECT_CREATE, PIPELINE_RUN, SECRET_DELETE
+  resource    String   // e.g. project, pipeline, secret
+  resourceId  String?  // ID of the affected resource
+  metadata    Json?    // Additional context
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([action])
+  @@index([resource, resourceId])
+  @@map("audit_logs")
+}
+
+/// Personal API tokens for programmatic access
+model ApiToken {
+  id          String    @id @default(cuid())
+  name        String    // User-friendly name
+  tokenHash   String    @unique // SHA-256 hash of the token
+  tokenPrefix String    // First 12 chars for identification
+  scopes      String[]  // Permissions: read:projects, write:pipelines, etc.
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  revokedAt   DateTime?
+  userId      String
+  createdAt   DateTime  @default(now())
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenHash])
+  @@map("api_tokens")
+}
+
+/// In-app notifications
+model Notification {
+  id        String    @id @default(cuid())
+  type      String    // PIPELINE_SUCCESS, PIPELINE_FAILED, DEPLOYMENT_SUCCESS, etc.
+  title     String
+  message   String
+  link      String?   // Deep link to relevant page
+  readAt    DateTime?
+  userId    String
+  createdAt DateTime  @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@index([userId, createdAt])
+  @@map("notifications")
 }

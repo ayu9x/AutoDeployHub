@@ -27,6 +27,11 @@ import { SecretsModule } from './modules/secrets/secrets.module';
 import { WebhooksModule } from './modules/webhooks/webhooks.module';
 import { LogsModule } from './modules/logs/logs.module';
 import { HealthModule } from './modules/health/health.module';
+import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { TeamsModule } from './modules/teams/teams.module';
+import { AuditModule } from './modules/audit/audit.module';
+import { TokensModule } from './modules/tokens/tokens.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 
 import configuration from './config/configuration';
 
@@ -72,6 +77,13 @@ import configuration from './config/configuration';
     WebhooksModule,
     LogsModule,
     HealthModule,
+
+    // SaaS features
+    AnalyticsModule,
+    TeamsModule,
+    AuditModule,
+    TokensModule,
+    NotificationsModule,
   ],
   providers: [
     // Apply rate limiting globally

@@ -1,117 +1,120 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Rocket, Github, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
-import { api } from '@/lib/api';
+import { useRouter } from 'next/navigation';
+import { ArrowLeft, FolderGit2, GitBranch, Globe, Loader2 } from 'lucide-react';
+
+const frameworks = [
+  { value: 'nextjs', label: 'Next.js', color: '#60A5FA' },
+  { value: 'react', label: 'React', color: '#60A5FA' },
+  { value: 'vue', label: 'Vue.js', color: '#34D399' },
+  { value: 'nestjs', label: 'NestJS', color: '#F87171' },
+  { value: 'express', label: 'Express', color: '#FBBF24' },
+  { value: 'go', label: 'Go', color: '#60A5FA' },
+  { value: 'python', label: 'Python', color: '#FBBF24' },
+  { value: 'static', label: 'Static Site', color: '#A78BFA' },
+];
 
 export default function NewProjectPage() {
   const router = useRouter();
   const [name, setName] = useState('');
   const [repoUrl, setRepoUrl] = useState('');
   const [branch, setBranch] = useState('main');
-  const [description, setDescription] = useState('');
+  const [framework, setFramework] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
-
-    try {
-      const res = await api.createProject({ name, repoUrl, repoBranch: branch, description });
-      router.push(`/dashboard/projects/${res.data.id}`);
-    } catch (err: any) {
-      setError(err.message);
-      setLoading(false);
-    }
+    // Demo: simulate creation
+    await new Promise(r => setTimeout(r, 1500));
+    router.push('/dashboard/projects');
   };
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      <div className="flex items-center gap-3">
-        <Link href="/dashboard/projects" className="p-2 rounded-lg hover:bg-accent text-muted-foreground">
-          <ArrowLeft className="w-5 h-5" />
+    <div className="max-w-lg mx-auto animate-fade-up">
+      <div className="flex items-center gap-2.5 mb-6">
+        <Link href="/dashboard/projects" className="p-1.5 rounded-md hover:bg-white/[0.03] text-[hsl(220,10%,42%)] transition-colors">
+          <ArrowLeft className="w-4 h-4" />
         </Link>
         <div>
-          <h1 className="text-3xl font-bold">New Project</h1>
-          <p className="text-muted-foreground mt-1">Connect a GitHub repository</p>
+          <h1 className="text-xl font-bold tracking-tight">New Project</h1>
+          <p className="text-[12px] text-[hsl(220,10%,42%)]">Connect a Git repository</p>
         </div>
       </div>
 
-      <form onSubmit={handleCreate} className="glass-card rounded-xl p-6 space-y-6">
-        {error && (
-          <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
-            {error}
+      <form onSubmit={handleCreate} className="space-y-4">
+        <div className="glass-card rounded-xl p-5 space-y-4">
+          {/* Project Name */}
+          <div>
+            <label className="block text-[12px] font-medium text-[hsl(220,10%,52%)] mb-1.5 uppercase tracking-wider">
+              Project Name
+            </label>
+            <div className="relative">
+              <FolderGit2 className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[hsl(220,10%,32%)]" />
+              <input type="text" value={name} onChange={(e) => setName(e.target.value)}
+                placeholder="my-awesome-app" required
+                className="w-full pl-9 pr-3 py-2.5 rounded-lg input-field text-[13px]" />
+            </div>
           </div>
-        )}
 
-        <div>
-          <label className="block text-sm font-medium mb-2">Project Name *</label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="my-awesome-app"
-            required
-            className="w-full px-4 py-3 rounded-lg bg-card border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-colors"
-          />
-        </div>
+          {/* Repo URL */}
+          <div>
+            <label className="block text-[12px] font-medium text-[hsl(220,10%,52%)] mb-1.5 uppercase tracking-wider">
+              Repository URL
+            </label>
+            <div className="relative">
+              <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[hsl(220,10%,32%)]" />
+              <input type="url" value={repoUrl} onChange={(e) => setRepoUrl(e.target.value)}
+                placeholder="https://github.com/user/repo" required
+                className="w-full pl-9 pr-3 py-2.5 rounded-lg input-field text-[13px]" />
+            </div>
+          </div>
 
-        <div>
-          <label className="block text-sm font-medium mb-2">Repository URL *</label>
-          <div className="relative">
-            <Github className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <input
-              type="url"
-              value={repoUrl}
-              onChange={(e) => setRepoUrl(e.target.value)}
-              placeholder="https://github.com/user/repo"
-              required
-              className="w-full pl-10 pr-4 py-3 rounded-lg bg-card border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-colors"
-            />
+          {/* Branch */}
+          <div>
+            <label className="block text-[12px] font-medium text-[hsl(220,10%,52%)] mb-1.5 uppercase tracking-wider">
+              Branch
+            </label>
+            <div className="relative">
+              <GitBranch className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[hsl(220,10%,32%)]" />
+              <input type="text" value={branch} onChange={(e) => setBranch(e.target.value)}
+                placeholder="main"
+                className="w-full pl-9 pr-3 py-2.5 rounded-lg input-field text-[13px]" />
+            </div>
           </div>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium mb-2">Branch</label>
-          <input
-            type="text"
-            value={branch}
-            onChange={(e) => setBranch(e.target.value)}
-            placeholder="main"
-            className="w-full px-4 py-3 rounded-lg bg-card border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-colors"
-          />
+        {/* Framework Selection */}
+        <div className="glass-card rounded-xl p-5">
+          <label className="block text-[12px] font-medium text-[hsl(220,10%,52%)] mb-3 uppercase tracking-wider">
+            Framework
+          </label>
+          <div className="grid grid-cols-2 gap-2">
+            {frameworks.map(f => (
+              <button key={f.value} type="button" onClick={() => setFramework(f.value)}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] font-medium transition-all ${
+                  framework === f.value
+                    ? 'bg-[hsl(225,73%,57%,0.1)] border border-[hsl(225,73%,57%,0.25)] text-foreground'
+                    : 'bg-white/[0.02] border border-white/[0.04] text-[hsl(220,10%,42%)] hover:border-white/[0.08] hover:text-foreground'
+                }`}
+              >
+                <span className="w-2 h-2 rounded-full" style={{ background: f.color }} />
+                {f.label}
+              </button>
+            ))}
+          </div>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium mb-2">Description</label>
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="Brief description of your project"
-            rows={3}
-            className="w-full px-4 py-3 rounded-lg bg-card border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-colors resize-none"
-          />
-        </div>
-
-        <div className="flex items-center gap-3 pt-2">
-          <button
-            type="submit"
-            disabled={loading}
-            className="flex-1 py-3 rounded-lg bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-all disabled:opacity-50"
-          >
-            {loading ? 'Creating...' : 'Create Project'}
-          </button>
-          <Link
-            href="/dashboard/projects"
-            className="px-6 py-3 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-          >
-            Cancel
-          </Link>
-        </div>
+        <button type="submit" disabled={loading || !name || !repoUrl}
+          className="w-full py-2.5 rounded-lg btn-primary text-[13px] font-medium disabled:opacity-40 disabled:cursor-not-allowed">
+          {loading ? (
+            <span className="inline-flex items-center gap-2">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Creating Project...
+            </span>
+          ) : 'Create Project'}
+        </button>
       </form>
     </div>
   );

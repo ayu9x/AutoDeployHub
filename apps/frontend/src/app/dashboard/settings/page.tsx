@@ -1,60 +1,110 @@
 'use client';
 
-import { Settings as SettingsIcon } from 'lucide-react';
+import { useState } from 'react';
+import { Bell, GitBranch, Database, Shield, Trash2 } from 'lucide-react';
+
+const ToggleSwitch = ({ defaultChecked = true }: { defaultChecked?: boolean }) => {
+  const [on, setOn] = useState(defaultChecked);
+  return (
+    <button onClick={() => setOn(!on)}
+      className={`relative w-10 h-5.5 rounded-full transition-colors duration-200 ${
+        on ? 'bg-[hsl(225,73%,57%)]' : 'bg-[hsl(228,14%,16%)]'
+      }`}>
+      <span className={`absolute top-0.5 left-0.5 w-4.5 h-4.5 rounded-full bg-white shadow transition-transform duration-200 ${
+        on ? 'translate-x-[18px]' : ''
+      }`} style={{ width: 18, height: 18 }} />
+    </button>
+  );
+};
 
 export default function SettingsPage() {
   return (
-    <div className="space-y-6 max-w-3xl">
+    <div className="max-w-2xl mx-auto space-y-5 animate-fade-up">
       <div>
-        <h1 className="text-3xl font-bold">Settings</h1>
-        <p className="text-muted-foreground mt-1">Account and platform settings</p>
+        <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
+        <p className="text-[13px] text-[hsl(220,10%,42%)] mt-0.5">Account and platform configuration</p>
       </div>
 
-      <div className="glass-card rounded-xl p-6 space-y-4">
-        <h2 className="text-lg font-semibold">Account</h2>
+      {/* Notifications */}
+      <div className="glass-card rounded-xl p-5">
+        <h2 className="text-[14px] font-semibold flex items-center gap-2 mb-4">
+          <Bell className="w-4 h-4 text-[#60A5FA]" />
+          Notifications
+        </h2>
+        <div className="space-y-0">
+          {[
+            { label: 'Pipeline Failures', desc: 'Get notified when a pipeline fails', default: true },
+            { label: 'Deployment Success', desc: 'Notify on successful deployments', default: true },
+            { label: 'Security Alerts', desc: 'Vulnerability and dependency alerts', default: true },
+          ].map((item, i) => (
+            <div key={i} className="flex items-center justify-between py-3 border-b border-white/[0.04] last:border-0">
+              <div>
+                <p className="text-[13px] font-medium">{item.label}</p>
+                <p className="text-[11px] text-[hsl(220,10%,38%)]">{item.desc}</p>
+              </div>
+              <ToggleSwitch defaultChecked={item.default} />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Build Configuration */}
+      <div className="glass-card rounded-xl p-5">
+        <h2 className="text-[14px] font-semibold flex items-center gap-2 mb-4">
+          <Database className="w-4 h-4 text-[#A78BFA]" />
+          Build Configuration
+        </h2>
+        <div className="space-y-0">
+          {[
+            { label: 'Auto-deploy on push', desc: 'Deploy automatically when pushing to main', default: true },
+            { label: 'Build Cache', desc: 'Cache dependencies between builds for speed', default: true },
+            { label: 'Parallel Steps', desc: 'Execute independent steps in parallel', default: false },
+          ].map((item, i) => (
+            <div key={i} className="flex items-center justify-between py-3 border-b border-white/[0.04] last:border-0">
+              <div>
+                <p className="text-[13px] font-medium">{item.label}</p>
+                <p className="text-[11px] text-[hsl(220,10%,38%)]">{item.desc}</p>
+              </div>
+              <ToggleSwitch defaultChecked={item.default} />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Security */}
+      <div className="glass-card rounded-xl p-5">
+        <h2 className="text-[14px] font-semibold flex items-center gap-2 mb-4">
+          <Shield className="w-4 h-4 text-[#FBBF24]" />
+          Security
+        </h2>
         <div className="space-y-3">
-          <div className="flex items-center justify-between py-3 border-b border-border">
+          <div className="flex items-center justify-between">
             <div>
-              <p className="font-medium">Email Notifications</p>
-              <p className="text-sm text-muted-foreground">Receive alerts for pipeline failures</p>
+              <p className="text-[13px] font-medium">Two-Factor Authentication</p>
+              <p className="text-[11px] text-[hsl(220,10%,38%)]">Add extra security to your account</p>
             </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input type="checkbox" defaultChecked className="sr-only peer" />
-              <div className="w-11 h-6 bg-card rounded-full peer peer-checked:bg-primary transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-foreground after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full" />
-            </label>
+            <button className="btn-secondary text-[12px] px-3 py-1.5 rounded-md">Enable</button>
           </div>
-          <div className="flex items-center justify-between py-3 border-b border-border">
+          <div className="flex items-center justify-between pt-3 border-t border-white/[0.04]">
             <div>
-              <p className="font-medium">Auto-deploy on push</p>
-              <p className="text-sm text-muted-foreground">Automatically deploy on push to main branch</p>
+              <p className="text-[13px] font-medium">API Token</p>
+              <p className="text-[11px] text-[hsl(220,10%,38%)]">Manage personal access tokens</p>
             </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input type="checkbox" defaultChecked className="sr-only peer" />
-              <div className="w-11 h-6 bg-card rounded-full peer peer-checked:bg-primary transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-foreground after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full" />
-            </label>
-          </div>
-          <div className="flex items-center justify-between py-3">
-            <div>
-              <p className="font-medium">Build Cache</p>
-              <p className="text-sm text-muted-foreground">Cache dependencies between builds</p>
-            </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input type="checkbox" defaultChecked className="sr-only peer" />
-              <div className="w-11 h-6 bg-card rounded-full peer peer-checked:bg-primary transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-foreground after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full" />
-            </label>
+            <button className="btn-secondary text-[12px] px-3 py-1.5 rounded-md">Generate</button>
           </div>
         </div>
       </div>
 
-      <div className="glass-card rounded-xl p-6">
-        <h2 className="text-lg font-semibold text-destructive mb-4">Danger Zone</h2>
+      {/* Danger Zone */}
+      <div className="glass-card rounded-xl p-5" style={{ borderColor: 'rgba(248,113,113,0.12)' }}>
+        <h2 className="text-[14px] font-semibold text-[#F87171] mb-4">Danger Zone</h2>
         <div className="flex items-center justify-between">
           <div>
-            <p className="font-medium">Delete Account</p>
-            <p className="text-sm text-muted-foreground">Permanently delete your account and all data</p>
+            <p className="text-[13px] font-medium">Delete Account</p>
+            <p className="text-[11px] text-[hsl(220,10%,38%)]">Permanently remove your account and all data</p>
           </div>
-          <button className="px-4 py-2 rounded-lg border border-destructive/50 text-destructive text-sm hover:bg-destructive/10 transition-colors">
-            Delete Account
+          <button className="text-[12px] px-3 py-1.5 rounded-md border border-[rgba(248,113,113,0.2)] text-[#F87171] hover:bg-[rgba(248,113,113,0.06)] transition-colors flex items-center gap-1.5">
+            <Trash2 className="w-3 h-3" /> Delete
           </button>
         </div>
       </div>
